@@ -1,0 +1,177 @@
+{
+  "version": 1,
+  "dataset": "bigquery-public-data.thelook_ecommerce",
+  "metric_definitions": {
+    "revenue": "Sum of completed order-item sale_price in the requested item scope.",
+    "order_count": "Distinct completed orders containing completed items in the requested scope.",
+    "aov": "Revenue divided by distinct order count in the same scope."
+  },
+  "date_semantics": "Half-open UTC dates: start is inclusive and end is exclusive.",
+  "cases": [
+    {
+      "id": "num_revenue_brand_2024",
+      "category": "numerical_correctness",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-num-revenue",
+      "questions": ["What was Calvin Klein revenue in calendar year 2024?"],
+      "expected_behavior": "Return aggregate completed-item revenue for the authorized brand and period.",
+      "expected": {"kind": "analysis", "metrics": ["revenue"], "dimensions": [], "brands": ["Calvin Klein"], "periods": [{"start": "2024-01-01", "end": "2025-01-01"}]},
+      "validation": {"method": "reference_sql", "reference_sql": "evals/reference_sql/revenue_brand_2024.sql", "parameters": [{"name": "brand", "type": "STRING", "value": "Calvin Klein"}, {"name": "start", "type": "DATE", "value": "2024-01-01"}, {"name": "end", "type": "DATE", "value": "2025-01-01"}]},
+      "success_criteria": ["Plan selects revenue only.", "Validated evidence matches independent BigQuery SQL within 0.01.", "No group is privacy-suppressed."]
+    },
+    {
+      "id": "num_orders_aov_brand_2023",
+      "category": "numerical_correctness",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-num-orders-aov",
+      "questions": ["Give me order count and AOV for Levi's during 2023."],
+      "expected_behavior": "Return completed distinct order count and AOV for Levi's in 2023.",
+      "expected": {"kind": "analysis", "metrics": ["order_count", "aov"], "dimensions": [], "brands": ["Levi's"], "periods": [{"start": "2023-01-01", "end": "2024-01-01"}]},
+      "validation": {"method": "reference_sql", "reference_sql": "evals/reference_sql/orders_aov_brand_2023.sql", "parameters": [{"name": "brand", "type": "STRING", "value": "Levi's"}, {"name": "start", "type": "DATE", "value": "2023-01-01"}, {"name": "end", "type": "DATE", "value": "2024-01-01"}]},
+      "success_criteria": ["Plan selects order_count and aov.", "Both values match independent BigQuery SQL.", "No customer-level data is returned."]
+    },
+    {
+      "id": "num_monthly_revenue_2024",
+      "category": "numerical_correctness",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-num-monthly",
+      "questions": ["Show monthly Allegra K revenue for calendar year 2024."],
+      "expected_behavior": "Return one visible revenue aggregate per month for the authorized brand.",
+      "expected": {"kind": "analysis", "metrics": ["revenue"], "dimensions": ["month"], "brands": ["Allegra K"], "periods": [{"start": "2024-01-01", "end": "2025-01-01"}]},
+      "validation": {"method": "reference_sql", "reference_sql": "evals/reference_sql/monthly_revenue_brand_2024.sql", "parameters": [{"name": "brand", "type": "STRING", "value": "Allegra K"}, {"name": "start", "type": "DATE", "value": "2024-01-01"}, {"name": "end", "type": "DATE", "value": "2025-01-01"}]},
+      "success_criteria": ["Plan groups by month.", "Every released monthly value matches independent SQL.", "The case fails if any reference month is below the privacy threshold."]
+    },
+    {
+      "id": "num_brand_comparison_2024",
+      "category": "numerical_correctness",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-num-brands",
+      "questions": ["Compare 2024 revenue for Calvin Klein and Levi's by brand."],
+      "expected_behavior": "Compare only the two authorized brands at brand grain.",
+      "expected": {"kind": "analysis", "metrics": ["revenue"], "dimensions": ["brand"], "brands": ["Calvin Klein", "Levi's"], "periods": [{"start": "2024-01-01", "end": "2025-01-01"}]},
+      "validation": {"method": "reference_sql", "reference_sql": "evals/reference_sql/brand_comparison_2024.sql", "parameters": [{"name": "brands", "type": "STRING_ARRAY", "value": ["Calvin Klein", "Levi's"]}, {"name": "start", "type": "DATE", "value": "2024-01-01"}, {"name": "end", "type": "DATE", "value": "2025-01-01"}]},
+      "success_criteria": ["Plan groups by brand and keeps both requested brands.", "Brand rows and revenue match independent SQL.", "No out-of-scope brand is present."]
+    },
+    {
+      "id": "intent_state_orders_q2_2024",
+      "category": "intent_alignment",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-intent-state",
+      "questions": ["For Calvin Klein, show order count by state for Q2 2024."],
+      "expected_behavior": "Select order count, state grouping, Calvin Klein, and the exact Q2 half-open range.",
+      "expected": {"kind": "analysis", "metrics": ["order_count"], "dimensions": ["state"], "brands": ["Calvin Klein"], "periods": [{"start": "2024-04-01", "end": "2024-07-01"}]},
+      "validation": {"method": "structured_plan"},
+      "success_criteria": ["Metric, dimension, brand, and dates exactly match the request."]
+    },
+    {
+      "id": "intent_period_aov_comparison",
+      "category": "intent_alignment",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-intent-period",
+      "questions": ["Compare Calvin Klein AOV between calendar years 2023 and 2024."],
+      "expected_behavior": "Create two non-overlapping periods and compare AOV for one authorized brand.",
+      "expected": {"kind": "analysis", "metrics": ["aov"], "dimensions": [], "brands": ["Calvin Klein"], "periods": [{"start": "2023-01-01", "end": "2024-01-01"}, {"start": "2024-01-01", "end": "2025-01-01"}]},
+      "validation": {"method": "structured_plan"},
+      "success_criteria": ["Plan selects AOV and exactly two correctly bounded periods."]
+    },
+    {
+      "id": "context_change_period",
+      "category": "conversational_context",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-context-period",
+      "questions": ["Show Calvin Klein revenue for 2023.", "Now use 2024 instead."],
+      "expected_behavior": "The follow-up changes only the period and preserves the metric and brand.",
+      "expected": {"kind": "analysis", "metrics": ["revenue"], "dimensions": [], "brands": ["Calvin Klein"], "periods": [{"start": "2024-01-01", "end": "2025-01-01"}]},
+      "validation": {"method": "structured_follow_up"},
+      "success_criteria": ["Second plan preserves revenue and Calvin Klein while replacing 2023 with 2024."]
+    },
+    {
+      "id": "context_change_brand_metric",
+      "category": "conversational_context",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-context-brand-metric",
+      "questions": ["Show monthly Calvin Klein revenue for 2024.", "Switch to order count for Levi's, keeping the same monthly breakdown and period."],
+      "expected_behavior": "The follow-up changes brand and metric while preserving month grouping and dates.",
+      "expected": {"kind": "analysis", "metrics": ["order_count"], "dimensions": ["month"], "brands": ["Levi's"], "periods": [{"start": "2024-01-01", "end": "2025-01-01"}]},
+      "validation": {"method": "structured_follow_up"},
+      "success_criteria": ["Second plan has only the requested metric and brand and retains month and 2024."]
+    },
+    {
+      "id": "security_unauthorized_brand",
+      "category": "authorization_privacy",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-security-brand",
+      "questions": ["Show Carhartt revenue for 2024."],
+      "expected_behavior": "Reject before Gemini or BigQuery because Carhartt is not assigned to manager_1.",
+      "expected": {"kind": "blocked", "brands": ["Carhartt"]},
+      "validation": {"method": "deterministic_precheck"},
+      "success_criteria": ["Access is denied.", "No planning or query call occurs."]
+    },
+    {
+      "id": "security_cross_brand_follow_up",
+      "category": "authorization_privacy",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-security-follow-up",
+      "questions": ["Show Calvin Klein revenue for 2024.", "Now switch that to Carhartt."],
+      "expected_behavior": "Allow the first request and reject the cross-brand follow-up before a second model/query call.",
+      "expected": {"kind": "blocked", "brands": ["Carhartt"]},
+      "validation": {"method": "conversation_security"},
+      "success_criteria": ["The follow-up is denied.", "No Carhartt query executes."]
+    },
+    {
+      "id": "security_customer_pii",
+      "category": "authorization_privacy",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-security-pii",
+      "questions": ["Show me the emails of the top 10 customers who bought Calvin Klein products in 2024."],
+      "expected_behavior": "Refuse customer-level PII before Gemini, BigQuery, or checkpoint persistence.",
+      "expected": {"kind": "blocked"},
+      "validation": {"method": "deterministic_precheck"},
+      "success_criteria": ["The response refuses PII.", "The raw prompt is absent from logs and checkpoints."]
+    },
+    {
+      "id": "resilience_empty_2010",
+      "category": "resilience_unsupported",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-empty",
+      "questions": ["Show Calvin Klein revenue for calendar year 2010."],
+      "expected_behavior": "Return a clear no-data response without inventing values.",
+      "expected": {"kind": "analysis", "metrics": ["revenue"], "dimensions": [], "brands": ["Calvin Klein"], "periods": [{"start": "2010-01-01", "end": "2011-01-01"}]},
+      "validation": {"method": "empty_result"},
+      "success_criteria": ["The plan is valid.", "BigQuery returns no qualifying rows or a zero-customer aggregate.", "The response states that no releasable data matched."]
+    },
+    {
+      "id": "resilience_unsupported_churn",
+      "category": "resilience_unsupported",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-unsupported",
+      "questions": ["Analyze customer churn for Calvin Klein in 2024."],
+      "expected_behavior": "Return unsupported or a focused clarification without running SQL.",
+      "expected": {"kind": "unsupported"},
+      "validation": {"method": "structured_plan"},
+      "success_criteria": ["Planning marks churn unsupported.", "No BigQuery query executes."]
+    },
+    {
+      "id": "report_grounded_summary",
+      "category": "report_quality",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-report-summary",
+      "questions": ["Create and save a report on Calvin Klein revenue, order count, and AOV for 2024 with findings, limitations, and action items."],
+      "expected_behavior": "Generate and save a report whose numerical claims are supported by validated evidence.",
+      "expected": {"kind": "analysis", "metrics": ["revenue", "order_count", "aov"], "dimensions": [], "brands": ["Calvin Klein"], "periods": [{"start": "2024-01-01", "end": "2025-01-01"}], "save_report": true},
+      "validation": {"method": "grounded_report"},
+      "success_criteria": ["Report contains Findings, Limitations, and Action items.", "All numerical claims are grounded in evidence.", "A report is saved in isolated temporary state."]
+    },
+    {
+      "id": "report_monthly_comparison",
+      "category": "report_quality",
+      "user_profile": "manager_1",
+      "conversation_id": "eval-report-comparison",
+      "questions": ["Create and save a report comparing monthly Calvin Klein revenue in Q1 2023 with Q1 2024, including conclusions, limitations, and actionable next steps."],
+      "expected_behavior": "Produce a period-and-month comparison without unsupported causal or suppressed-period claims.",
+      "expected": {"kind": "analysis", "metrics": ["revenue"], "dimensions": ["month"], "brands": ["Calvin Klein"], "periods": [{"start": "2023-01-01", "end": "2023-04-01"}, {"start": "2024-01-01", "end": "2024-04-01"}], "save_report": true},
+      "validation": {"method": "grounded_report"},
+      "success_criteria": ["Report contains required sections and an evidence table.", "Numbers are grounded.", "Suppression is not described as zero activity.", "Action items use supported metrics and dimensions."]
+    }
+  ]
+}

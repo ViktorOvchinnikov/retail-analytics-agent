@@ -1,0 +1,36 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+credentials*.json
+service-account*.json
+*.pem
+*.key
+
+# Virtual environments
+.venv/
+venv/
+
+# Python caches and build output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Local application state and logs
+*.sqlite3
+*.sqlite3-*
+*.db
+*.log
+*.jsonl
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,24 @@
+services:
+  cli:
+    platform: linux/amd64
+    build:
+      context: .
+      args:
+        APP_UID: ${APP_UID:-1000}
+    env_file:
+      - .env
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /home/retailagent/.config/gcloud/application_default_credentials.json
+      RETAIL_AGENT_DB_PATH: /var/lib/retail-agent/retail-agent.sqlite3
+      RETAIL_AGENT_LOG_PATH: /var/lib/retail-agent/retail-agent.jsonl
+    volumes:
+      - retail-agent-state:/var/lib/retail-agent
+      - type: bind
+        source: ${HOME}/.config/gcloud/application_default_credentials.json
+        target: /home/retailagent/.config/gcloud/application_default_credentials.json
+        read_only: true
+    stdin_open: true
+    tty: true
+
+volumes:
+  retail-agent-state:

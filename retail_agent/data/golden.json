@@ -1,0 +1,20 @@
+[
+  {
+    "question": "Show monthly revenue and order count for an accessible brand.",
+    "sql": "SELECT\n  DATE_TRUNC(DATE(oi.created_at), MONTH) AS month,\n  SUM(CAST(oi.sale_price AS NUMERIC)) AS revenue,\n  COUNT(DISTINCT oi.order_id) AS order_count\nFROM `bigquery-public-data.thelook_ecommerce.order_items` AS oi\nJOIN `bigquery-public-data.thelook_ecommerce.orders` AS o\n  ON o.order_id = oi.order_id AND o.user_id = oi.user_id\nJOIN `bigquery-public-data.thelook_ecommerce.products` AS p\n  ON p.id = oi.product_id\nJOIN `bigquery-public-data.thelook_ecommerce.users` AS u\n  ON u.id = oi.user_id\nWHERE o.status = 'Complete'\n  AND oi.status = 'Complete'\n  AND p.brand = @brand\n  AND DATE(oi.created_at) >= @start_date\n  AND DATE(oi.created_at) < @end_date\nGROUP BY month\nORDER BY month",
+    "method": "Use completed order items, count distinct orders, group by item creation month, and disclose the date and brand scope.",
+    "report": "Compare only visible months. Cite visible strongest and weakest months, state that suppressed groups cannot be inferred, and avoid causal claims."
+  },
+  {
+    "question": "Compare two products during the same quarter.",
+    "sql": "SELECT\n  p.name AS product,\n  SUM(CAST(oi.sale_price AS NUMERIC)) AS revenue,\n  COUNT(DISTINCT oi.order_id) AS order_count,\n  SAFE_DIVIDE(\n    SUM(CAST(oi.sale_price AS NUMERIC)),\n    COUNT(DISTINCT oi.order_id)\n  ) AS aov\nFROM `bigquery-public-data.thelook_ecommerce.order_items` AS oi\nJOIN `bigquery-public-data.thelook_ecommerce.orders` AS o\n  ON o.order_id = oi.order_id AND o.user_id = oi.user_id\nJOIN `bigquery-public-data.thelook_ecommerce.products` AS p\n  ON p.id = oi.product_id\nJOIN `bigquery-public-data.thelook_ecommerce.users` AS u\n  ON u.id = oi.user_id\nWHERE o.status = 'Complete'\n  AND oi.status = 'Complete'\n  AND p.brand = @brand\n  AND LOWER(p.name) IN UNNEST(@products)\n  AND DATE(oi.created_at) >= @start_date\n  AND DATE(oi.created_at) < @end_date\nGROUP BY product\nORDER BY revenue DESC",
+    "method": "Use the same date window and metrics for both products, group by product, and compare revenue, order count, and AOV.",
+    "report": "Describe observed differences, label possible explanations as hypotheses, and propose a next step using supported metrics and dimensions."
+  },
+  {
+    "question": "Compare this quarter with the previous quarter.",
+    "sql": "WITH scoped_items AS (\n  SELECT\n    oi.order_id,\n    CAST(oi.sale_price AS NUMERIC) AS sale_price,\n    DATE(oi.created_at) AS event_date\n  FROM `bigquery-public-data.thelook_ecommerce.order_items` AS oi\n  JOIN `bigquery-public-data.thelook_ecommerce.orders` AS o\n    ON o.order_id = oi.order_id AND o.user_id = oi.user_id\n  JOIN `bigquery-public-data.thelook_ecommerce.products` AS p\n    ON p.id = oi.product_id\n  JOIN `bigquery-public-data.thelook_ecommerce.users` AS u\n    ON u.id = oi.user_id\n  WHERE o.status = 'Complete'\n    AND oi.status = 'Complete'\n    AND p.brand = @brand\n    AND DATE(oi.created_at) >= @previous_start_date\n    AND DATE(oi.created_at) < @current_end_date\n), labeled AS (\n  SELECT\n    order_id,\n    sale_price,\n    CASE\n      WHEN event_date < @current_start_date THEN 'previous'\n      ELSE 'current'\n    END AS comparison_period\n  FROM scoped_items\n)\nSELECT\n  comparison_period,\n  SUM(sale_price) AS revenue,\n  COUNT(DISTINCT order_id) AS order_count,\n  SAFE_DIVIDE(SUM(sale_price), COUNT(DISTINCT order_id)) AS aov\nFROM labeled\nGROUP BY comparison_period\nORDER BY comparison_period",
+    "method": "Use two non-overlapping half-open periods with identical filters and metric definitions.",
+    "report": "State absolute values and percentage change only when the denominator is non-zero. Mention incomplete periods."
+  }
+]
